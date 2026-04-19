@@ -13,17 +13,13 @@ import path from "path";
 const app = express();
 const httpServer = createServer(app);
 
-// CORS — allow requests from the configured frontend origin(s) (or all origins in dev)
-// CORS_ORIGIN can be a single origin or a comma-separated list of origins
-const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(",").map((o) => o.trim()).filter(Boolean)
-  : [];
-
+// CORS — allow requests from the configured frontend origin (or all origins in dev)
+const allowedOrigin = process.env.CORS_ORIGIN;
 app.use(
   cors({
-    origin: allowedOrigins.length > 0
+    origin: allowedOrigin
       ? (origin, callback) => {
-          if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+          if (!origin || origin === allowedOrigin) return callback(null, true);
           callback(new Error("Not allowed by CORS"));
         }
       : true,
