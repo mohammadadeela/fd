@@ -14,7 +14,7 @@ function storageKey(userId: number) {
 
 export function useAbandonedCartReminder() {
   const { data: user, isLoading } = useAuth();
-  const items = useCart((state) => state.items);
+  const { items } = useCart();
   const { toast } = useToast();
   const { language } = useLanguage();
   const [location, navigate] = useLocation();

@@ -1321,6 +1321,85 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  // --- Cart (server-persisted for logged-in users) ---
+  const cartItemSchema = z.object({
+    productId: z.number(),
+    quantity: z.number().min(1).default(1),
+    size: z.string().nullable().optional(),
+    color: z.string().nullable().optional(),
+  });
+
+  app.get("/api/cart", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    const items = await storage.getCartItems((req.user as any).id);
+    res.json(items);
+  });
+
+  app.post("/api/cart", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    try {
+      const { productId, quantity, size, color } = cartItemSchema.parse(req.body);
+      await storage.upsertCartItem((req.user as any).id, productId, quantity, size ?? null, color ?? null);
+      const items = await storage.getCartItems((req.user as any).id);
+      res.json(items);
+    } catch (err) {
+      res.status(400).json({ message: "Validation error" });
+    }
+  });
+
+  app.put("/api/cart/item", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    try {
+      const { productId, quantity, size, color } = cartItemSchema.parse(req.body);
+      await storage.updateCartItemQty((req.user as any).id, productId, quantity, size ?? null, color ?? null);
+      const items = await storage.getCartItems((req.user as any).id);
+      res.json(items);
+    } catch (err) {
+      res.status(400).json({ message: "Validation error" });
+    }
+  });
+
+  app.delete("/api/cart/item", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    try {
+      const { productId, size, color } = z.object({
+        productId: z.number(),
+        size: z.string().nullable().optional(),
+        color: z.string().nullable().optional(),
+      }).parse(req.body);
+      await storage.removeCartItem((req.user as any).id, productId, size ?? null, color ?? null);
+      const items = await storage.getCartItems((req.user as any).id);
+      res.json(items);
+    } catch (err) {
+      res.status(400).json({ message: "Validation error" });
+    }
+  });
+
+  app.delete("/api/cart", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    await storage.clearUserCart((req.user as any).id);
+    res.json([]);
+  });
+
+  app.post("/api/cart/merge", async (req, res) => {
+    if (!req.isAuthenticated()) return res.status(401).json({ message: "Unauthorized" });
+    try {
+      const { items } = z.object({
+        items: z.array(z.object({
+          productId: z.number(),
+          quantity: z.number().min(1),
+          size: z.string().nullable().optional(),
+          color: z.string().nullable().optional(),
+        })),
+      }).parse(req.body);
+      await storage.mergeGuestCart((req.user as any).id, items);
+      const merged = await storage.getCartItems((req.user as any).id);
+      res.json(merged);
+    } catch (err) {
+      res.status(400).json({ message: "Validation error" });
+    }
+  });
+
   // --- Discount Codes ---
   app.post(api.discounts.validate.path, async (req, res) => {
     try {

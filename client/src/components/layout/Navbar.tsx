@@ -185,7 +185,7 @@ export function Navbar() {
   });
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [location, navigate] = useLocation();
-  const cartItems = useCart((state) => state.items);
+  const { items: cartItems } = useCart();
   const { data: user } = useAuth();
   const logout = useLogout();
   const { t, language, setLanguage } = useLanguage();

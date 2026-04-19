@@ -1,4 +1,4 @@
-import { users, categories, subcategories, products, orders, orderItems, wishlist, reviews, discountCodes, siteSettings, posOrders, productEvents, type User, type InsertUser, type Category, type InsertCategory, type Subcategory, type InsertSubcategory, type Product, type InsertProduct, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type Wishlist, type InsertWishlist, type Review, type InsertReview, type DiscountCode, type InsertDiscountCode, type SiteSetting, type PosOrder, type InsertPosOrder, type InsertProductEvent } from "@shared/schema";
+import { users, categories, subcategories, products, orders, orderItems, wishlist, cartItems, reviews, discountCodes, siteSettings, posOrders, productEvents, type User, type InsertUser, type Category, type InsertCategory, type Subcategory, type InsertSubcategory, type Product, type InsertProduct, type Order, type InsertOrder, type OrderItem, type InsertOrderItem, type Wishlist, type InsertWishlist, type CartItemRow, type InsertCartItem, type Review, type InsertReview, type DiscountCode, type InsertDiscountCode, type SiteSetting, type PosOrder, type InsertPosOrder, type InsertProductEvent } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
 
@@ -52,6 +52,14 @@ export interface IStorage {
   addToWishlist(userId: number, productId: number): Promise<Wishlist>;
   removeFromWishlist(id: number): Promise<boolean>;
   isInWishlist(userId: number, productId: number): Promise<boolean>;
+
+  // Cart
+  getCartItems(userId: number): Promise<(CartItemRow & { product: Product })[]>;
+  upsertCartItem(userId: number, productId: number, quantity: number, size?: string | null, color?: string | null): Promise<void>;
+  updateCartItemQty(userId: number, productId: number, quantity: number, size?: string | null, color?: string | null): Promise<void>;
+  removeCartItem(userId: number, productId: number, size?: string | null, color?: string | null): Promise<void>;
+  clearUserCart(userId: number): Promise<void>;
+  mergeGuestCart(userId: number, guestItems: Array<{ productId: number; quantity: number; size?: string | null; color?: string | null }>): Promise<void>;
 
   // Reviews
   getReviews(productId: number): Promise<Review[]>;
@@ -450,6 +458,69 @@ export class DatabaseStorage implements IStorage {
   async isInWishlist(userId: number, productId: number): Promise<boolean> {
     const [item] = await db.select().from(wishlist).where(and(eq(wishlist.userId, userId), eq(wishlist.productId, productId)));
     return !!item;
+  }
+
+  async getCartItems(userId: number): Promise<(CartItemRow & { product: Product })[]> {
+    const rows = await db
+      .select({ cartItem: cartItems, product: products })
+      .from(cartItems)
+      .innerJoin(products, eq(cartItems.productId, products.id))
+      .where(eq(cartItems.userId, userId));
+    return rows.map(r => ({ ...r.cartItem, product: r.product }));
+  }
+
+  async upsertCartItem(userId: number, productId: number, quantity: number, size?: string | null, color?: string | null): Promise<void> {
+    const existing = await db
+      .select()
+      .from(cartItems)
+      .where(and(
+        eq(cartItems.userId, userId),
+        eq(cartItems.productId, productId),
+        size ? eq(cartItems.size, size) : sql`${cartItems.size} is null`,
+        color ? eq(cartItems.color, color) : sql`${cartItems.color} is null`,
+      ));
+    if (existing.length > 0) {
+      await db
+        .update(cartItems)
+        .set({ quantity: existing[0].quantity + quantity, updatedAt: new Date() })
+        .where(eq(cartItems.id, existing[0].id));
+    } else {
+      await db.insert(cartItems).values({ userId, productId, quantity, size: size ?? null, color: color ?? null });
+    }
+  }
+
+  async updateCartItemQty(userId: number, productId: number, quantity: number, size?: string | null, color?: string | null): Promise<void> {
+    if (quantity < 1) return;
+    await db
+      .update(cartItems)
+      .set({ quantity, updatedAt: new Date() })
+      .where(and(
+        eq(cartItems.userId, userId),
+        eq(cartItems.productId, productId),
+        size ? eq(cartItems.size, size) : sql`${cartItems.size} is null`,
+        color ? eq(cartItems.color, color) : sql`${cartItems.color} is null`,
+      ));
+  }
+
+  async removeCartItem(userId: number, productId: number, size?: string | null, color?: string | null): Promise<void> {
+    await db
+      .delete(cartItems)
+      .where(and(
+        eq(cartItems.userId, userId),
+        eq(cartItems.productId, productId),
+        size ? eq(cartItems.size, size) : sql`${cartItems.size} is null`,
+        color ? eq(cartItems.color, color) : sql`${cartItems.color} is null`,
+      ));
+  }
+
+  async clearUserCart(userId: number): Promise<void> {
+    await db.delete(cartItems).where(eq(cartItems.userId, userId));
+  }
+
+  async mergeGuestCart(userId: number, guestItems: Array<{ productId: number; quantity: number; size?: string | null; color?: string | null }>): Promise<void> {
+    for (const item of guestItems) {
+      await this.upsertCartItem(userId, item.productId, item.quantity, item.size, item.color);
+    }
   }
 
   async getReviews(productId: number): Promise<Review[]> {

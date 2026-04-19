@@ -132,6 +132,16 @@ export const wishlist = pgTable("wishlist", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const cartItems = pgTable("cart_items", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  productId: integer("product_id").references(() => products.id).notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  size: text("size"),
+  color: text("color"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const reviews = pgTable("reviews", {
   id: serial("id").primaryKey(),
   productId: integer("product_id").references(() => products.id).notNull(),
@@ -183,6 +193,9 @@ export const insertProductSchema = createInsertSchema(products).omit({ id: true,
 export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, createdAt: true });
 export const insertOrderItemSchema = createInsertSchema(orderItems).omit({ id: true });
 export const insertWishlistSchema = createInsertSchema(wishlist).omit({ id: true, createdAt: true });
+export const insertCartItemSchema = createInsertSchema(cartItems).omit({ id: true, updatedAt: true });
+export type CartItemRow = typeof cartItems.$inferSelect;
+export type InsertCartItem = z.infer<typeof insertCartItemSchema>;
 export const insertReviewSchema = createInsertSchema(reviews).omit({ id: true, createdAt: true });
 export const insertDiscountCodeSchema = createInsertSchema(discountCodes).omit({ id: true, createdAt: true, usedCount: true });
 
