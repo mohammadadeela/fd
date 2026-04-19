@@ -12,7 +12,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 import { signInWithGoogle, signInWithFacebook, handleFirebaseRedirectResult } from "@/lib/firebase";
 import { SiFacebook } from "react-icons/si";
-import { Loader2, Mail, Lock, ShieldX, X, ArrowLeft, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { Loader2, Mail, Lock, ShieldX, X, ArrowLeft, ArrowRight, Eye, EyeOff, BookmarkCheck } from "lucide-react";
 
 type Step =
   | "auth"
@@ -646,19 +646,30 @@ export default function Auth() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2.5">
-                  <input
-                    id="remember-me"
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={e => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 accent-foreground cursor-pointer"
-                    data-testid="checkbox-remember-me"
-                  />
-                  <label htmlFor="remember-me" className="text-sm text-muted-foreground cursor-pointer select-none">
-                    {language === "ar" ? "تذكرني" : "Remember me"}
-                  </label>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setRememberMe(v => !v)}
+                  className={`flex items-center justify-between w-full px-4 py-3 rounded-xl border transition-all duration-300 group ${rememberMe ? "border-foreground/30 bg-foreground/5" : "border-border bg-transparent hover:bg-muted/40"}`}
+                  data-testid="checkbox-remember-me"
+                  aria-pressed={rememberMe}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-300 ${rememberMe ? "bg-foreground text-background" : "bg-muted text-muted-foreground group-hover:bg-muted/80"}`}>
+                      <BookmarkCheck className="w-4 h-4" />
+                    </span>
+                    <div className="text-start">
+                      <p className={`text-sm font-medium leading-none transition-colors ${rememberMe ? "text-foreground" : "text-muted-foreground"}`}>
+                        {language === "ar" ? "تذكرني" : "Remember me"}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground/70 mt-0.5 leading-none">
+                        {language === "ar" ? "حفظ البريد لتسجيل دخول أسرع" : "Save email for faster sign-in"}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 border-transparent transition-all duration-300 ${rememberMe ? "bg-foreground" : "bg-muted"}`}>
+                    <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-md ring-0 transition-transform duration-300 ${rememberMe ? (language === "ar" ? "-translate-x-5" : "translate-x-5") : "translate-x-0.5"}`} />
+                  </span>
+                </button>
 
                 <LoginNotification
                   code={loginError}
