@@ -190,12 +190,16 @@ export default function Auth() {
               const d = await res.json();
               throw new Error(d.message || "Login failed");
             }
-            queryClient.invalidateQueries({ queryKey: [api.auth.me.path] });
-            queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+            const user = await res.json();
+            queryClient.setQueryData([api.auth.me.path], user);
+            queryClient.invalidateQueries({ queryKey: [api.orders.list.path] });
             queryClient.invalidateQueries({ queryKey: ["/api/wishlist"] });
             queryClient.invalidateQueries({ queryKey: ["/api/wishlist/products"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
             toast({ title: t.auth.welcomeBackToast });
-            setLocation("/");
+            if (user?.role === "admin") setLocation("/admin");
+            else if (user?.role === "employee") setLocation("/admin/pos");
+            else setLocation("/");
           })
           .catch((err: any) => {
             const msg = err.message === "account_blocked" ? "هذا الحساب محظور" : err.message;
@@ -227,13 +231,16 @@ export default function Auth() {
       }
       return res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [api.auth.me.path] });
-      queryClient.invalidateQueries({ queryKey: ["/api/orders"] });
+    onSuccess: (user) => {
+      queryClient.setQueryData([api.auth.me.path], user);
+      queryClient.invalidateQueries({ queryKey: [api.orders.list.path] });
       queryClient.invalidateQueries({ queryKey: ["/api/wishlist"] });
       queryClient.invalidateQueries({ queryKey: ["/api/wishlist/products"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
       toast({ title: t.auth.welcomeBackToast });
-      setLocation("/");
+      if (user?.role === "admin") setLocation("/admin");
+      else if (user?.role === "employee") setLocation("/admin/pos");
+      else setLocation("/");
     },
     onError: (err: any) => {
       const msg = err.message === "account_blocked" ? "هذا الحساب محظور" : err.message;

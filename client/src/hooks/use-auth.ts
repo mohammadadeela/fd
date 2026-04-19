@@ -3,11 +3,27 @@ import { api } from "@shared/routes";
 import { type LoginRequest, type RegisterRequest } from "@shared/schema";
 import { useGuestCart } from "@/store/use-cart";
 
-function invalidateUserData(queryClient: ReturnType<typeof useQueryClient>) {
-  queryClient.invalidateQueries({ queryKey: [api.auth.me.path] });
-  queryClient.invalidateQueries({ queryKey: [api.orders.list.path] });
-  queryClient.invalidateQueries({ queryKey: ["/api/wishlist"] });
-  queryClient.invalidateQueries({ queryKey: ["/api/wishlist/products"] });
+function mergeGuestCartInBackground(queryClient: ReturnType<typeof useQueryClient>) {
+  const guestItems = useGuestCart.getState().items;
+  if (guestItems.length === 0) return;
+  fetch("/api/cart/merge", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({
+      items: guestItems.map((i) => ({
+        productId: i.product.id,
+        quantity: i.quantity,
+        size: i.size ?? null,
+        color: i.color ?? null,
+      })),
+    }),
+  })
+    .then(() => {
+      useGuestCart.getState().clearCart();
+      queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+    })
+    .catch(() => {});
 }
 
 export function useAuth() {
@@ -40,28 +56,13 @@ export function useLogin() {
       }
       return api.auth.login.responses[200].parse(await res.json());
     },
-    onSuccess: async () => {
-      const guestItems = useGuestCart.getState().items;
-      if (guestItems.length > 0) {
-        try {
-          await fetch("/api/cart/merge", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({
-              items: guestItems.map((i) => ({
-                productId: i.product.id,
-                quantity: i.quantity,
-                size: i.size ?? null,
-                color: i.color ?? null,
-              })),
-            }),
-          });
-          useGuestCart.getState().clearCart();
-        } catch {}
-      }
-      invalidateUserData(queryClient);
+    onSuccess: (user) => {
+      queryClient.setQueryData([api.auth.me.path], user);
+      queryClient.invalidateQueries({ queryKey: [api.orders.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/wishlist"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/wishlist/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+      mergeGuestCartInBackground(queryClient);
     },
   });
 }
@@ -85,28 +86,13 @@ export function useRegister() {
       }
       return await res.json();
     },
-    onSuccess: async () => {
-      const guestItems = useGuestCart.getState().items;
-      if (guestItems.length > 0) {
-        try {
-          await fetch("/api/cart/merge", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({
-              items: guestItems.map((i) => ({
-                productId: i.product.id,
-                quantity: i.quantity,
-                size: i.size ?? null,
-                color: i.color ?? null,
-              })),
-            }),
-          });
-          useGuestCart.getState().clearCart();
-        } catch {}
-      }
-      invalidateUserData(queryClient);
+    onSuccess: (user) => {
+      queryClient.setQueryData([api.auth.me.path], user);
+      queryClient.invalidateQueries({ queryKey: [api.orders.list.path] });
+      queryClient.invalidateQueries({ queryKey: ["/api/wishlist"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/wishlist/products"] });
       queryClient.invalidateQueries({ queryKey: ["/api/cart"] });
+      mergeGuestCartInBackground(queryClient);
     },
   });
 }
@@ -126,10 +112,8 @@ export function useLogout() {
       queryClient.setQueryData([api.orders.list.path], []);
       queryClient.setQueryData(["/api/wishlist"], []);
       queryClient.setQueryData(["/api/wishlist/products"], []);
-      queryClient.setQueryData(["/api/cart"], []);
       queryClient.removeQueries({ queryKey: ["/api/cart"] });
       useGuestCart.getState().clearCart();
-      invalidateUserData(queryClient);
     },
   });
 }
